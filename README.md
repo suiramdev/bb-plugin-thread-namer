@@ -46,7 +46,8 @@ Settings are edited in the app, or with `bb plugin config thread-namer set …`.
 
 Automatic naming skips:
 
-- threads with a name you typed (a name this plugin wrote is fair game),
+- threads with a name you typed (a name this plugin wrote, or one the thread's
+  agent set for its session, is fair game),
 - hidden threads, including this plugin's own naming worker,
 - child threads — subagent and background threads are named by their parent,
 - archived and deleted threads.

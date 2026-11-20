@@ -200,7 +200,7 @@ export default function plugin(bb: BbPluginApi) {
         TIMEOUT_OPTIONS[timeout] ?? TIMEOUT_OPTIONS[DEFAULT_TIMEOUT_OPTION]!;
 
       const thread = await bb.sdk.threads.get({ threadId });
-      const facts = toFacts(thread);
+      const facts = toFacts(thread, await readProviderTitle(bb, threadId));
 
       const outline = await bb.sdk.threads
         .conversationOutline({ threadId })
@@ -292,7 +292,7 @@ export default function plugin(bb: BbPluginApi) {
     // The naming worker is a thread too, so it reaches idle as well. Rule the
     // obvious cases out from the payload rather than reading state back for
     // every turn in bb; `nameThread` re-checks against fresh state anyway.
-    const nameable = isNameable(toFacts(thread), bb.pluginId);
+    const nameable = isNameable(toFacts(thread, null), bb.pluginId);
     if (!nameable.rename) return;
     void nameThread(thread.id, false).then((result) => {
       if (!result.ok) bb.log.debug(`${thread.id}: ${result.error}`);
@@ -377,7 +377,7 @@ function toFacts(thread: {
   archivedAt: number | null;
   deletedAt: number | null;
   originPluginId: string | null;
-}): ThreadFacts {
+}, providerTitle: string | null): ThreadFacts {
   return {
     title: thread.title,
     visibility: thread.visibility,
@@ -385,7 +385,27 @@ function toFacts(thread: {
     archivedAt: thread.archivedAt,
     deletedAt: thread.deletedAt,
     originPluginId: thread.originPluginId,
+    providerTitle,
   };
+}
+
+/**
+ * The name the thread's agent last reported for its session. bb records it
+ * only when the agent sends one, never for a rename made in bb.
+ */
+async function readProviderTitle(
+  bb: BbPluginApi,
+  threadId: string,
+): Promise<string | null> {
+  const [latest] = await bb.sdk.threads.events
+    .list({
+      threadId,
+      types: ["thread/name/updated"],
+      order: "desc",
+      limit: "1",
+    })
+    .catch(() => []);
+  return latest?.type === "thread/name/updated" ? latest.data.threadName : null;
 }
 
 /**

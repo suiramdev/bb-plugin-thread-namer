@@ -20,6 +20,8 @@ export interface ThreadFacts {
   archivedAt: number | null;
   deletedAt: number | null;
   originPluginId: string | null;
+  /** The name the thread's agent last reported for its session, if any. */
+  providerTitle: string | null;
 }
 
 /** How eagerly threads are named automatically. */
@@ -54,8 +56,8 @@ export function isNameable(
 /**
  * Whether an idle thread should be named now.
  *
- * A title the user typed is never overwritten: only an empty title, or one
- * this plugin wrote itself, is fair game.
+ * A title the user typed is never overwritten: only an empty title, one the
+ * thread's agent set, or one this plugin wrote itself, is fair game.
  */
 export function shouldAutoRename(
   facts: ThreadFacts,
@@ -73,6 +75,9 @@ export function shouldAutoRename(
   }
 
   if (facts.title === null || facts.title.trim() === "") return { rename: true };
+  // Agents title a session from whatever text they see first, which in bb is
+  // often the injected plugin instructions rather than the user's task.
+  if (facts.title === facts.providerTitle) return { rename: true };
 
   if (record === null || record.title !== facts.title) {
     return { rename: false, reason: "the name was set by hand" };

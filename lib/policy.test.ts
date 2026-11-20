@@ -16,6 +16,7 @@ function facts(overrides: Partial<ThreadFacts> = {}): ThreadFacts {
     archivedAt: null,
     deletedAt: null,
     originPluginId: null,
+    providerTitle: null,
     ...overrides,
   };
 }
@@ -84,6 +85,30 @@ describe("shouldAutoRename", () => {
   it("never overwrites a title the user typed", () => {
     expect(
       shouldAutoRename(facts({ title: "My own name" }), null, "always", PLUGIN_ID, 9),
+    ).toMatchObject({ rename: false, reason: "the name was set by hand" });
+  });
+
+  it("names a thread whose title its agent set", () => {
+    expect(
+      shouldAutoRename(
+        facts({ title: "UI Reference", providerTitle: "UI Reference" }),
+        null,
+        "once",
+        PLUGIN_ID,
+        4,
+      ),
+    ).toEqual({ rename: true });
+  });
+
+  it("keeps a title typed over the one its agent set", () => {
+    expect(
+      shouldAutoRename(
+        facts({ title: "My own name", providerTitle: "UI Reference" }),
+        null,
+        "always",
+        PLUGIN_ID,
+        9,
+      ),
     ).toMatchObject({ rename: false, reason: "the name was set by hand" });
   });
 

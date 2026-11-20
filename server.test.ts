@@ -19,6 +19,8 @@ function createHost(options: {
   outline?: { role: "user" | "assistant"; preview: string }[];
   answer?: string;
   settings?: Record<string, string>;
+  /** The session name the thread's agent reported, if any. */
+  providerTitle?: string;
 }) {
   const thread = makeThreadResponse({
     id: THREAD_ID,
@@ -71,6 +73,20 @@ function createHost(options: {
           })),
           maxSeq: outline.length * 2,
         }),
+        events: {
+          list: async () =>
+            options.providerTitle === undefined
+              ? []
+              : [
+                  {
+                    type: "thread/name/updated",
+                    data: {
+                      providerThreadId: "session_1",
+                      threadName: options.providerTitle,
+                    },
+                  },
+                ],
+        },
         defaultExecutionOptions: async () => ({
           model: "claude-opus-5",
           serviceTier: "default",
@@ -234,6 +250,40 @@ describe("naming on thread.idle", () => {
     expect(host.updates).toEqual([
       { threadId: THREAD_ID, title: "Flaky login test" },
     ]);
+  });
+
+  it("names a thread whose title its agent set", async () => {
+    const host = createHost({
+      thread: { title: "UI Reference" },
+      providerTitle: "UI Reference",
+    });
+    await load(host);
+
+    await host.harness.behavior.emitThreadEvent("thread.idle", {
+      thread: makeThreadResponse({ id: THREAD_ID, title: "UI Reference" }),
+      lastAssistantText: "done",
+    });
+    await settle();
+
+    expect(host.updates).toEqual([
+      { threadId: THREAD_ID, title: "Flaky login test" },
+    ]);
+  });
+
+  it("keeps a title typed over the one its agent set", async () => {
+    const host = createHost({
+      thread: { title: "My own name" },
+      providerTitle: "UI Reference",
+    });
+    await load(host);
+
+    await host.harness.behavior.emitThreadEvent("thread.idle", {
+      thread: makeThreadResponse({ id: THREAD_ID, title: "My own name" }),
+      lastAssistantText: "done",
+    });
+    await settle();
+
+    expect(host.updates).toEqual([]);
   });
 
   it("names a thread only once in the default mode", async () => {
